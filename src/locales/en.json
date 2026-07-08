@@ -1,6 +1,6 @@
 {
   "app": {
-    "title": "Starlink Flight Deck",
+    "title": "Star Manager",
     "subtitle": "Direct gRPC telemetry and controls for your dish.",
     "subtitleWithRouter": "Direct gRPC telemetry and controls for your dish and router."
   },

@@ -25,3 +25,6 @@ dist-ssr
 
 # Claude Code local (per-machine) settings
 .claude/settings.local.json
+
+# Local scratch: downloaded release artifacts for manual testing
+release-downloads/
