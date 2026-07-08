@@ -641,9 +641,21 @@ pub async fn trigger_dish_action(
         }
     };
 
-    let response = call_handle(&mut client, request_variant)
-        .await
-        .map_err(|s| format!("gRPC call failed: {s}"))?;
+    let response = match call_handle(&mut client, request_variant).await {
+        Ok(resp) => resp,
+        // A reboot makes the dish drop the connection as it restarts, often
+        // before the response finishes - that's the connection tearing down
+        // as *expected*, not a failed request, since we already connected
+        // successfully moments earlier.
+        Err(_status) if action_id == "reboot" => {
+            return Ok(ActionExecutionResult {
+                id: action_id,
+                ok: true,
+                message: message.to_string(),
+            });
+        }
+        Err(status) => return Err(format!("gRPC call failed: {status}")),
+    };
     let got = response
         .response
         .as_ref()

@@ -234,9 +234,21 @@ pub async fn trigger_router_action(
         }
     };
 
-    let response = call_handle(&mut client, request_variant)
-        .await
-        .map_err(|s| format!("gRPC call failed: {s}"))?;
+    let response = match call_handle(&mut client, request_variant).await {
+        Ok(resp) => resp,
+        // A reboot makes the router drop the connection as it restarts, often
+        // before the response finishes - that's the connection tearing down
+        // as *expected*, not a failed request, since we already connected
+        // successfully moments earlier.
+        Err(_status) if action_id == "reboot" => {
+            return Ok(RouterActionExecutionResult {
+                id: action_id,
+                ok: true,
+                message: message.to_string(),
+            });
+        }
+        Err(status) => return Err(format!("gRPC call failed: {status}")),
+    };
     let got = response.response.as_ref().map(response_name).unwrap_or("none");
     if got != expected {
         return Err(format!(

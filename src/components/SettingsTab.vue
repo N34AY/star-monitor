@@ -122,14 +122,6 @@ h2:first-child {
   margin-bottom: 0.3rem;
 }
 
-.field select {
-  border: 1px solid var(--line);
-  border-radius: 10px;
-  padding: 0.6rem 0.7rem;
-  font: inherit;
-  color: var(--ink);
-  background: rgba(255, 255, 255, 0.04);
-}
 
 .hint {
   margin: 0.3rem 0 0;

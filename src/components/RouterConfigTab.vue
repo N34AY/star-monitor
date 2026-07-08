@@ -193,15 +193,6 @@ async function save() {
   font-size: 0.88rem;
 }
 
-.field select {
-  width: 100%;
-  border: 1px solid var(--line);
-  border-radius: 10px;
-  padding: 0.6rem 0.7rem;
-  font: inherit;
-  color: var(--ink);
-  background: rgba(255, 255, 255, 0.04);
-}
 
 .checkbox-field {
   display: flex;

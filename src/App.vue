@@ -123,8 +123,12 @@ async function refreshSnapshot(opts: { silent?: boolean } = {}) {
       includeGnss: includeGnss.value,
       includeHistory: false,
     });
+    errorMessage.value = null; // clear any stale error now that we're reconnected
   } catch (e) {
-    errorMessage.value = e instanceof Error ? e.message : String(e);
+    // Background polls stay quiet on failure (e.g. the dish is mid-reboot
+    // and will reconnect on its own) - only a deliberate refresh surfaces
+    // the error banner.
+    if (!opts.silent) errorMessage.value = e instanceof Error ? e.message : String(e);
   } finally {
     loading.value = false;
   }
@@ -172,7 +176,12 @@ async function runDishAction(action: ActionDef) {
       actionId: action.id,
     });
     infoMessage.value = result.message;
-    await refreshSnapshot();
+    // A reboot takes the dish offline for a while - an immediate refresh
+    // would just fail and stomp the success message with a scary error.
+    // The regular auto-refresh timer will pick it back up once it's online.
+    if (action.id !== "reboot") {
+      await refreshSnapshot();
+    }
   } catch (e) {
     errorMessage.value = e instanceof Error ? e.message : String(e);
   } finally {
@@ -194,7 +203,10 @@ async function runRouterAction(action: ActionDef) {
       actionId: action.id,
     });
     infoMessage.value = result.message;
-    await refreshRouter();
+    // Same reasoning as the dish reboot case above.
+    if (action.id !== "reboot") {
+      await refreshRouter();
+    }
   } catch (e) {
     errorMessage.value = e instanceof Error ? e.message : String(e);
   } finally {
@@ -359,6 +371,12 @@ onBeforeUnmount(stopAutoRefresh);
 
 <style>
 :root {
+  /* The whole app is unconditionally dark themed. This hints the engine
+     to render native, otherwise-unstylable UI chrome (select dropdown
+     popups, scrollbars) in its dark variant too - without it, WebKitGTK
+     on Linux renders <select> popups with the OS's light GTK theme
+     regardless of any CSS applied to the <select>/<option> elements. */
+  color-scheme: dark;
   --page: #0d0d0d;
   --surface: #17171a;
   --panel: rgba(255, 255, 255, 0.035);
@@ -445,7 +463,8 @@ h3 {
   margin: 0;
 }
 
-input {
+input,
+select {
   width: 100%;
   border: 1px solid var(--line);
   border-radius: 10px;
@@ -453,6 +472,13 @@ input {
   font: inherit;
   color: var(--ink);
   background: rgba(255, 255, 255, 0.04);
+}
+
+/* Belt-and-suspenders for engines that do honor option-level styling
+   (color-scheme above is what fixes WebKitGTK's native popup). */
+option {
+  background-color: var(--surface);
+  color: var(--ink);
 }
 
 input[type="checkbox"] {
