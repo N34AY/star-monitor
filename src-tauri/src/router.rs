@@ -42,17 +42,17 @@ pub struct WifiClientInfo {
 #[serde(rename_all = "camelCase")]
 pub struct RouterOverview {
     software_version: Option<String>,
-    uptime_s: Option<u64>,
-    ping_latency_ms: f64,
-    ping_drop_percent: f64,
+    pub(crate) uptime_s: Option<u64>,
+    pub(crate) ping_latency_ms: f64,
+    pub(crate) ping_drop_percent: f64,
     dish_ping_latency_ms: f64,
     dish_ping_drop_percent: f64,
-    alerts: Vec<String>,
+    pub(crate) alerts: Vec<String>,
     clients: Vec<WifiClientInfo>,
     ssids: Vec<String>,
     setup_complete: bool,
     bypass_mode: bool,
-    reboot_from_update: Option<RebootEventInfo>,
+    pub(crate) reboot_from_update: Option<RebootEventInfo>,
     config: Option<WifiConfigInfo>,
 }
 
@@ -79,8 +79,8 @@ pub struct WifiConfigInfo {
 #[derive(Debug, Clone, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct RebootEventInfo {
-    count: u32,
-    last_occurred_unix_s: i64,
+    pub(crate) count: u32,
+    pub(crate) last_occurred_unix_s: i64,
 }
 
 #[derive(Debug, Clone, Serialize)]
@@ -133,6 +133,33 @@ pub struct RouterActionExecutionResult {
 #[tauri::command]
 pub fn default_router_address() -> String {
     DEFAULT_ROUTER_ADDRESS.to_string()
+}
+
+/// Result of a single lightweight status probe (just `GetStatus`) - used by
+/// the background history collector instead of the full snapshot's endpoint
+/// list, to keep per-tick load on the router minimal.
+pub struct RouterProbe {
+    pub reachable: bool,
+    pub overview: Option<RouterOverview>,
+    pub error: Option<String>,
+}
+
+pub async fn probe_router_status(router_address: &str) -> RouterProbe {
+    match connect_client(router_address).await {
+        Ok(mut client) => {
+            let (section, overview) = run_status_section(&mut client).await;
+            RouterProbe {
+                reachable: section.ok,
+                overview,
+                error: section.error,
+            }
+        }
+        Err(e) => RouterProbe {
+            reachable: false,
+            overview: None,
+            error: Some(e),
+        },
+    }
 }
 
 #[tauri::command]

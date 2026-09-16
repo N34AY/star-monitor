@@ -5,10 +5,12 @@ import OverviewTab from "./components/OverviewTab.vue";
 import DishTab from "./components/DishTab.vue";
 import RouterTab from "./components/RouterTab.vue";
 import DiagnosticsTab from "./components/DiagnosticsTab.vue";
+import IncidentsTab from "./components/IncidentsTab.vue";
 import SettingsTab from "./components/SettingsTab.vue";
 import type {
   ActionDef,
   ActionExecutionResult,
+  CollectorConfig,
   RouterSnapshot,
   StarlinkSnapshot,
   TabKey,
@@ -26,6 +28,10 @@ const includeGnss = ref(false);
 const autoRefreshEnabled = ref(true);
 const refreshEverySeconds = ref(3);
 let refreshTimer: number | null = null;
+
+const collectorPollIntervalS = ref(10);
+const collectorRetentionDays = ref(3);
+let collectorConfigLoaded = false;
 
 const defaultDishAddress = ref("");
 const defaultRouterAddress = ref("");
@@ -49,6 +55,7 @@ const allTabs: { key: TabKey; visible: () => boolean }[] = [
   { key: "dish", visible: () => dishEnabled.value },
   { key: "router", visible: () => routerEnabled.value },
   { key: "diagnostics", visible: () => true },
+  { key: "incidents", visible: () => true },
   { key: "settings", visible: () => true },
 ];
 const tabs = computed(() => allTabs.filter((tb) => tb.visible()));
@@ -81,6 +88,42 @@ async function loadDefaults() {
   setLocale(persisted?.language ?? "en");
 
   settingsLoaded = true;
+
+  // Background history collection lives in the Rust backend (it keeps
+  // running while the window is hidden), so its settings are the backend's
+  // source of truth rather than localStorage - just hydrate the UI from it.
+  try {
+    const collectorConfig = await invoke<CollectorConfig>("get_collector_config");
+    collectorPollIntervalS.value = collectorConfig.pollIntervalS;
+    collectorRetentionDays.value = collectorConfig.retentionDays;
+  } catch {
+    // fall back to the defaults already set above
+  }
+  collectorConfigLoaded = true;
+}
+
+function persistCollectorConfig() {
+  if (!collectorConfigLoaded) return;
+  void invoke("save_collector_config", {
+    config: {
+      dishAddress: dishAddress.value,
+      dishEnabled: dishEnabled.value,
+      routerAddress: routerAddress.value,
+      routerEnabled: routerEnabled.value,
+      pollIntervalS: collectorPollIntervalS.value,
+      retentionDays: collectorRetentionDays.value,
+    } satisfies CollectorConfig,
+  });
+}
+
+async function clearHistory() {
+  if (!window.confirm(t("settings.clearHistoryConfirm"))) return;
+  try {
+    await invoke("clear_history");
+    infoMessage.value = t("settings.clearHistorySuccess");
+  } catch (e) {
+    errorMessage.value = e instanceof Error ? e.message : String(e);
+  }
 }
 
 function persistSettings() {
@@ -107,6 +150,8 @@ async function resetToDefaults() {
   includeGnss.value = false;
   autoRefreshEnabled.value = true;
   refreshEverySeconds.value = 3;
+  collectorPollIntervalS.value = 10;
+  collectorRetentionDays.value = 3;
   setLocale("en");
   await tick();
 }
@@ -281,6 +326,11 @@ watch(
   persistSettings
 );
 
+watch(
+  [dishAddress, dishEnabled, routerAddress, routerEnabled, collectorPollIntervalS, collectorRetentionDays],
+  persistCollectorConfig
+);
+
 onMounted(async () => {
   await loadDefaults();
   await tick();
@@ -352,6 +402,8 @@ onBeforeUnmount(stopAutoRefresh);
       :router-sections="routerSnapshot?.sections ?? []"
     />
 
+    <IncidentsTab v-if="activeTab === 'incidents'" />
+
     <SettingsTab
       v-if="activeTab === 'settings'"
       v-model:dish-address="dishAddress"
@@ -362,9 +414,12 @@ onBeforeUnmount(stopAutoRefresh);
       v-model:include-gnss="includeGnss"
       v-model:auto-refresh-enabled="autoRefreshEnabled"
       v-model:refresh-every-seconds="refreshEverySeconds"
+      v-model:collector-poll-interval-s="collectorPollIntervalS"
+      v-model:collector-retention-days="collectorRetentionDays"
       :loading="loading"
       @refresh-now="tick()"
       @reset-defaults="resetToDefaults"
+      @clear-history="clearHistory"
     />
   </main>
 </template>

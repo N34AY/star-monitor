@@ -215,4 +215,44 @@ export type ActionExecutionResult = {
   message: string;
 };
 
-export type TabKey = "overview" | "dish" | "router" | "diagnostics" | "settings";
+export type TabKey = "overview" | "dish" | "router" | "diagnostics" | "incidents" | "settings";
+
+export type HistoryEvent = {
+  tsUnixMs: number;
+  source: "dish" | "router";
+  kind:
+    | "unreachable"
+    | "reachable_again"
+    | "reboot_detected"
+    | "alert_raised"
+    | "alert_cleared"
+    | "dish_outage";
+  detail: string;
+};
+
+export type HistorySamplePoint = {
+  tsUnixMs: number;
+  reachable: boolean;
+  latencyMs?: number | null;
+  pingDropPercent?: number | null;
+};
+
+export type HistorySamples = {
+  points: HistorySamplePoint[];
+};
+
+export type CollectorConfig = {
+  dishAddress: string;
+  dishEnabled: boolean;
+  routerAddress: string;
+  routerEnabled: boolean;
+  pollIntervalS: number;
+  retentionDays: number;
+};
+
+export type CollectorStatus = {
+  running: boolean;
+  lastPollUnixMs?: number | null;
+  sampleCount: number;
+  eventCount: number;
+};

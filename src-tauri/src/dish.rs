@@ -35,11 +35,11 @@ pub struct DishAction {
 #[serde(rename_all = "camelCase")]
 pub struct KeyMetrics {
     software_version: Option<String>,
-    uptime_s: Option<u64>,
-    downlink_mbps: Option<f64>,
-    uplink_mbps: Option<f64>,
-    latency_ms: Option<f64>,
-    ping_drop_percent: Option<f64>,
+    pub(crate) uptime_s: Option<u64>,
+    pub(crate) downlink_mbps: Option<f64>,
+    pub(crate) uplink_mbps: Option<f64>,
+    pub(crate) latency_ms: Option<f64>,
+    pub(crate) ping_drop_percent: Option<f64>,
     obstruction_percent: Option<f64>,
     gps_sats: Option<u32>,
     currently_obstructed: Option<bool>,
@@ -89,10 +89,10 @@ pub struct LocationInfo {
 #[derive(Debug, Clone, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct DishOverview {
-    key_metrics: KeyMetrics,
-    alerts: Vec<String>,
+    pub(crate) key_metrics: KeyMetrics,
+    pub(crate) alerts: Vec<String>,
     outage: Option<OutageInfo>,
-    disablement_code: String,
+    pub(crate) disablement_code: String,
     gps: GpsInfo,
     obstruction: Option<ObstructionDetail>,
     mobility_class: String,
@@ -100,7 +100,7 @@ pub struct DishOverview {
     stow_requested: bool,
     eth_speed_mbps: i32,
     connected_routers_count: usize,
-    reboot_reason: String,
+    pub(crate) reboot_reason: String,
     last_boot_unix_s: u64,
     utc_offset_s: i32,
     country_code: String,
@@ -123,9 +123,9 @@ pub struct DishConfigInfo {
 #[derive(Debug, Clone, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct OutageEvent {
-    cause: String,
-    start_unix_s: i64,
-    duration_s: f64,
+    pub(crate) cause: String,
+    pub(crate) start_unix_s: i64,
+    pub(crate) duration_s: f64,
 }
 
 #[derive(Debug, Clone, Serialize)]
@@ -136,7 +136,7 @@ pub struct DishHistory {
     downlink_mbps: Vec<f32>,
     uplink_mbps: Vec<f32>,
     power_in_w: Vec<f32>,
-    outages: Vec<OutageEvent>,
+    pub(crate) outages: Vec<OutageEvent>,
 }
 
 #[derive(Debug, Clone, Deserialize)]
@@ -183,6 +183,33 @@ pub struct ActionExecutionResult {
 #[tauri::command]
 pub fn default_dish_address() -> String {
     DEFAULT_DISH_ADDRESS.to_string()
+}
+
+/// Result of a single lightweight status probe (just `GetStatus`, no other
+/// endpoints) - used by the background history collector so it doesn't
+/// hammer the dish with the full snapshot's endpoint list on every tick.
+pub struct DishProbe {
+    pub reachable: bool,
+    pub overview: Option<DishOverview>,
+    pub error: Option<String>,
+}
+
+pub async fn probe_dish_status(dish_address: &str) -> DishProbe {
+    match connect_client(dish_address).await {
+        Ok(mut client) => {
+            let (section, overview) = run_status_section(&mut client).await;
+            DishProbe {
+                reachable: section.ok,
+                overview,
+                error: section.error,
+            }
+        }
+        Err(e) => DishProbe {
+            reachable: false,
+            overview: None,
+            error: Some(e),
+        },
+    }
 }
 
 #[tauri::command]
@@ -447,6 +474,13 @@ pub async fn fetch_dish_obstruction_map(
 
 const MAX_HISTORY_POINTS: usize = 300;
 
+// `DishOutage.start_timestamp_ns` (unlike every other timestamp this app
+// reads from the dish) is GPS time, not Unix time: GPS epoch (1980-01-06)
+// is 315,964,800s after the Unix epoch, and GPS time doesn't apply leap
+// seconds, so it currently runs 18s ahead of UTC. Confirmed against the
+// dish's own event log, which reports the same event in true Unix time.
+const GPS_TO_UNIX_OFFSET_S: i64 = 315_964_800 - 18;
+
 fn decimate(values: &[f32], max_points: usize) -> Vec<f32> {
     if max_points == 0 || values.len() <= max_points {
         return values.to_vec();
@@ -492,7 +526,7 @@ pub async fn fetch_dish_history(dish_address: Option<String>) -> Result<DishHist
                         .to_string();
                     OutageEvent {
                         cause,
-                        start_unix_s: o.start_timestamp_ns / 1_000_000_000,
+                        start_unix_s: o.start_timestamp_ns / 1_000_000_000 + GPS_TO_UNIX_OFFSET_S,
                         duration_s: (o.duration_ns as f64) / 1_000_000_000.0,
                     }
                 })

@@ -9,6 +9,7 @@
     "dish": "Dish",
     "router": "Router",
     "diagnostics": "Diagnostics",
+    "incidents": "Incidents",
     "settings": "Settings"
   },
   "subtabs": {
@@ -198,6 +199,36 @@
     "outageDuration": "Duration",
     "noData": "No history data yet"
   },
+  "incidents": {
+    "title": "Incidents",
+    "collectorStatus": "{samples} samples, {events} events recorded in the background.",
+    "collectorPaused": "(collection is currently disabled - enable dish or router monitoring in Settings)",
+    "timeline": "Timeline",
+    "noEvents": "No incidents recorded in this range yet.",
+    "colWhen": "When",
+    "colSource": "Source",
+    "colKind": "What",
+    "colDetail": "Detail",
+    "range": {
+      "24h": "Last 24h",
+      "3d": "Last 3 days",
+      "7d": "Last 7 days",
+      "all": "All"
+    },
+    "source": {
+      "all": "All",
+      "dish": "Dish",
+      "router": "Router"
+    },
+    "kind": {
+      "unreachable": "Became unreachable",
+      "reachable_again": "Back online",
+      "reboot_detected": "Reboot detected",
+      "alert_raised": "Alert raised",
+      "alert_cleared": "Alert cleared",
+      "dish_outage": "Dish-reported outage"
+    }
+  },
   "settings": {
     "connection": "Connection",
     "dishAddress": "Dish gRPC address",
@@ -216,6 +247,13 @@
     "refreshNow": "Refresh Now",
     "resetDefaults": "Reset to Defaults",
     "persistHint": "Settings are saved on this device and restored next time you open the app.",
+    "historyTitle": "History Collection",
+    "historyHint": "Runs in the background - even while the window is closed to the tray - so incidents get recorded whether or not the app is open.",
+    "keepFor": "Keep for",
+    "days": "days",
+    "clearHistory": "Clear History Now",
+    "clearHistoryConfirm": "Delete all locally stored incident history? This can't be undone.",
+    "clearHistorySuccess": "History cleared.",
     "language": "Language",
     "languageEnglish": "English",
     "languageUkrainian": "Українська"

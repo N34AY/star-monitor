@@ -9,9 +9,15 @@ const includeLocation = defineModel<boolean>("includeLocation", { required: true
 const includeGnss = defineModel<boolean>("includeGnss", { required: true });
 const autoRefreshEnabled = defineModel<boolean>("autoRefreshEnabled", { required: true });
 const refreshEverySeconds = defineModel<number>("refreshEverySeconds", { required: true });
+const collectorPollIntervalS = defineModel<number>("collectorPollIntervalS", { required: true });
+const collectorRetentionDays = defineModel<number>("collectorRetentionDays", { required: true });
 
 defineProps<{ loading: boolean }>();
-const emit = defineEmits<{ (e: "refresh-now"): void; (e: "reset-defaults"): void }>();
+const emit = defineEmits<{
+  (e: "refresh-now"): void;
+  (e: "reset-defaults"): void;
+  (e: "clear-history"): void;
+}>();
 
 function onLanguageChange(event: Event) {
   setLocale((event.target as HTMLSelectElement).value as Locale);
@@ -61,11 +67,11 @@ function onLanguageChange(event: Event) {
 
     <div class="toggles">
       <label>
-        <input type="checkbox" v-model="includeLocation" :disabled="loading" />
+        <input type="checkbox" v-model="includeLocation" />
         {{ t("settings.includeLocation") }}
       </label>
       <label>
-        <input type="checkbox" v-model="includeGnss" :disabled="loading" />
+        <input type="checkbox" v-model="includeGnss" />
         {{ t("settings.includeGnss") }}
       </label>
     </div>
@@ -82,6 +88,26 @@ function onLanguageChange(event: Event) {
         <input type="number" v-model.number="refreshEverySeconds" min="2" max="60" step="1" />
         {{ t("settings.sec") }}
       </label>
+    </div>
+
+    <h2>{{ t("settings.historyTitle") }}</h2>
+    <p class="hint">{{ t("settings.historyHint") }}</p>
+
+    <div class="live-controls">
+      <label>
+        {{ t("settings.every") }}
+        <input type="number" v-model.number="collectorPollIntervalS" min="2" max="300" step="1" />
+        {{ t("settings.sec") }}
+      </label>
+      <label>
+        {{ t("settings.keepFor") }}
+        <input type="number" v-model.number="collectorRetentionDays" min="1" max="30" step="1" />
+        {{ t("settings.days") }}
+      </label>
+    </div>
+
+    <div class="settings-actions">
+      <button @click="emit('clear-history')">{{ t("settings.clearHistory") }}</button>
     </div>
 
     <h2>{{ t("settings.language") }}</h2>
