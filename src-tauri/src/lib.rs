@@ -12,8 +12,32 @@ use tauri::menu::{Menu, MenuItem};
 use tauri::tray::TrayIconBuilder;
 use tauri::{Manager, WindowEvent};
 
+// macOS suspends (or heavily throttles) timers in apps that are hidden/not
+// frontmost ("App Nap"), which stalls the background history collector for
+// long stretches while the window is closed to the tray. Opting out here
+// disables just App Nap for this process - it does NOT prevent the Mac
+// itself from sleeping, so real system sleep still pauses everything as
+// normal.
+#[cfg(target_os = "macos")]
+fn disable_app_nap() {
+    use objc2_foundation::{NSActivityOptions, NSProcessInfo, NSString};
+
+    let process_info = NSProcessInfo::processInfo();
+    let reason = NSString::from_str("Continuous background dish/router history collection");
+    let activity = process_info.beginActivityWithOptions_reason(
+        NSActivityOptions::UserInitiatedAllowingIdleSystemSleep,
+        &reason,
+    );
+    // Leak the activity token so it lives for the whole process - ending it
+    // would let App Nap resume throttling the collector.
+    std::mem::forget(activity);
+}
+
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
+    #[cfg(target_os = "macos")]
+    disable_app_nap();
+
     tauri::Builder::default()
         .plugin(tauri_plugin_opener::init())
         .setup(|app| {
